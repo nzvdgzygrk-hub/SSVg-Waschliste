@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>SSVg Waschliste (gemeinsam)</title>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.5;
+      margin: 30px;
+      max-width: 900px;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 10px;
+    }
+
+    .code-lock {
+      margin: 15px 0 20px;
+      padding: 10px;
+      border-radius: 6px;
+      background: #f4f4f4;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .code-lock input {
+      padding: 6px 8px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      font-size: 0.9rem;
+    }
+
+    .code-lock button {
+      padding: 6px 12px;
+      border: 1px solid #999;
+      border-radius: 4px;
+      background: #e0e0e0;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+
+    .code-lock span {
+      font-size: 0.85rem;
+      color: #777;
+    }
+
+    .top-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: flex-end;
+      margin-bottom: 15px;
+    }
+
+    button.action {
+      padding: 6px 12px;
+      border: 1px solid #999;
+      border-radius: 4px;
+      background: #f2f2f2;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+
+    button.action:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    button.action:active {
+      transform: scale(0.98);
+    }
+
+    ul.player-list {
+      list-style: none;
+      padding-left: 0;
+      margin-top: 10px;
+    }
+
+    li.player-item {
+      margin: 6px 0;
+      font-size: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    li.player-item input[type="checkbox"] {
+      transform: scale(1.2);
+    }
+
+    li.player-item span.name {
+      flex: 1;
+    }
+
+    li.player-item.done span.name {
+      color: red;
+      text-decoration: line-through;
+      text-decoration-color: black;
+    }
+
+    .add-player {
+      margin-top: 20px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .add-player input[type="text"] {
+      flex: 1 1 200px;
+      padding: 6px 8px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      font-size: 0.9rem;
+    }
+
+    .hint {
+      margin-top: 10px;
+      font-size: 0.85rem;
+      color: #777;
+    }
+
+    .status {
+      margin-top: 10px;
+      font-size: 0.85rem;
+      color: #555;
+    }
+
+    footer {
+      margin-top: 40px;
+      text-align: center;
+      color: #777;
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+
+<h1>Waschliste SSVg (gemeinsam)</h1>
+
+<div class="code-lock">
+  <strong>Trainer-Code:</strong>
+  <input type="password" id="code-input" placeholder="Code eingeben">
+  <button id="code-btn">Code prüfen</button>
+  <span>(Nur mit richtigem Code können Häkchen, Würfel & Spieler geändert werden. Code: „SSVg“)</span>
+</div>
+
+<div class="top-actions">
+  <button class="action" id="shuffle-btn" disabled>Reihenfolge würfeln</button>
+  <button class="action" id="reset-btn" disabled>Alle Häkchen zurücksetzen</button>
+</div>
+
+<p>Liebe Eltern,</p>
+
+<p>
+Damit das Waschen der Trikots gerecht verteilt wird, haben wir eine feste Reihenfolge festgelegt.
+Beim letzten Elternabend wurde besprochen, dass der Verein in den Gebühren einmal pro Spiel am Wochenende das Waschen übernimmt.
+Falls wir jedoch zwei Spiele am Wochenende haben, müssen wir das Waschen selbst organisieren und dürfen die Trikots nicht abgeben.
+</p>
+
+<p>
+Falls ein Spieler, der an der Reihe wäre, an diesem Tag nicht spielt, wird er übersprungen und der Nächste auf der Liste übernimmt das Waschen.
+Sobald der übersprungene Spieler wieder da ist, ist er als Nächster dran, bevor es mit der Liste weitergeht.
+</p>
+
+<p>
+Die Liste ist alphabetisch (dieses Jahr umgekehrt) sortiert.<br>
+Falls die Mehrheit nicht dafür ist, können wir gerne nur einmal in der Woche spielen.
+</p>
+
+<p>Vielen Dank für eure Unterstützung!</p>
+
+<h3>Spieler-Reihenfolge:</h3>
+
+<ul class="player-list" id="player-list">
+  <!-- Wird durch JavaScript + Firebase gefüllt -->
+</ul>
+
+<div class="add-player">
+  <input type="text" id="new-player-name" placeholder="Neuen Spieler hinzufügen …" disabled>
+  <button class="action" id="add-player-btn" disabled>Spieler hinzufügen</button>
+</div>
+
+<p class="hint">
+Hinweis: Die Liste ist für alle gleich. Änderungen (Häkchen, Reihenfolge, neue Spieler) sind nur mit Trainer-Code möglich.
+</p>
+
+<p class="status" id="status-text">Verbinde mit Datenbank…</p>
+
+<footer>Programmierung: F. Kaplan</footer>
+
+<!-- Firebase & App-Code -->
+<script type="module">
+  // ==== Firebase-Imports (Modular SDK v9+) ====
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+  import {
+    getFirestore,
+    collection,
+    getDocs,
+    addDoc,
+    updateDoc,
+    doc,
+    orderBy,
+    query
+  } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+
+  // ==== Deine Firebase-Konfiguration ====
+  const firebaseConfig = {
+    apiKey: "AIzaSyAwo1Sl1XvJsDrnUYf6y6KIZfV8BOEWog8",
+    authDomain: "ssvg-waschliste-78d1d.firebaseapp.com",
+    projectId: "ssvg-waschliste-78d1d",
+    storageBucket: "ssvg-waschliste-78d1d.firebasestorage.app",
+    messagingSenderId: "767257621878",
+    appId: "1:767257621878:web:3a827e57e624f6ea1af657"
+  };
+
+  // Firebase initialisieren
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  const PLAYERS_COLLECTION = "players";
+
+  const playerListEl = document.getElementById("player-list");
+  const shuffleBtn = document.getElementById("shuffle-btn");
+  const resetBtn = document.getElementById("reset-btn");
+  const addPlayerInput = document.getElementById("new-player-name");
+  const addPlayerBtn = document.getElementById("add-player-btn");
+  const statusText = document.getElementById("status-text");
+
+  const codeInput = document.getElementById("code-input");
+  const codeBtn = document.getElementById("code-btn");
+
+  let isTrainer = false;
+  const TRAINER_CODE = "SSVg";
+
+  // UI sperren/freigeben je nach Trainer-Code
+  function updateLockState() {
+    shuffleBtn.disabled = !isTrainer;
+    resetBtn.disabled = !isTrainer;
+    addPlayerInput.disabled = !isTrainer;
+    addPlayerBtn.disabled = !isTrainer;
+
+    const checkboxes = playerListEl.querySelectorAll('input[type="checkbox"]');
+    checkboxes.forEach(cb => {
+      cb.disabled = !isTrainer;
+    });
+
+    if (isTrainer) {
+      statusText.textContent = "Trainer-Modus aktiv. Änderungen werden für alle gespeichert.";
+    } else {
+      statusText.textContent = "Nur Ansicht. Änderungen sind nur mit Trainer-Code möglich.";
+    }
+  }
+
+  codeBtn.addEventListener("click", () => {
+    const val = codeInput.value.trim();
+    if (val === TRAINER_CODE) {
+      isTrainer = true;
+      updateLockState();
+      alert("Trainer-Code korrekt. Du kannst jetzt Änderungen machen.");
+    } else {
+      alert("Code falsch.");
+    }
+  });
+
+  // Spieler aus Firestore laden (oder initial anlegen)
+  async function loadPlayers() {
+    statusText.textContent = "Lade Spieler…";
+
+    const q = query(collection(db, PLAYERS_COLLECTION), orderBy("order", "asc"));
+    const snapshot = await getDocs(q);
+
+    playerListEl.innerHTML = "";
+
+    if (snapshot.empty) {
+      const initialPlayers = [
+        "Semih Diner",
+        "Piotr Kowalski",
+        "Paul Herholz",
+        "Malik Vaak",
+        "Julian Hähnel",
+        "Jonas Koromilas",
+        "Kirill Braun",
+        "Efe Kaplan",
+        "David Weber",
+        "Aos Alnabelsi",
+        "Ahmet Süslü",
+        "Jannik Hähnel",
+        "Elias",
+        "Mario"
+      ];
+
+      let order = 1;
+      for (const name of initialPlayers) {
+        await addDoc(collection(db, PLAYERS_COLLECTION), {
+          name,
+          done: false,
+          order
+        });
+        order++;
+      }
+
+      return await loadPlayers();
+    }
+
+    snapshot.forEach(docSnap => {
+      const data = docSnap.data();
+      renderPlayer(docSnap.id, data.name, data.done, data.order);
+    });
+
+    updateLockState();
+    statusText.textContent = isTrainer
+      ? "Trainer-Modus aktiv. Änderungen werden für alle gespeichert."
+      : "Nur Ansicht. Änderungen sind nur mit Trainer-Code möglich.";
+  }
+
+  // Einen Spieler in die Liste rendern
+  function renderPlayer(id, name, done, order) {
+    const li = document.createElement("li");
+    li.className = "player-item";
+    if (done) li.classList.add("done");
+    li.dataset.id = id;
+    li.dataset.order = order;
+
+    li.innerHTML = `
+      <input type="checkbox" ${done ? "checked" : ""}>
+      <span class="name"></span>
+    `;
+
+    li.querySelector(".name").textContent = name;
+
+    const checkbox = li.querySelector('input[type="checkbox"]');
+    checkbox.disabled = !isTrainer;
+
+    checkbox.addEventListener("change", async () => {
+      if (!isTrainer) {
+        checkbox.checked = !checkbox.checked; // zurückstellen
+        return;
+      }
+      const newDone = checkbox.checked;
+      li.classList.toggle("done", newDone);
+
+      const ref = doc(db, PLAYERS_COLLECTION, id);
+      await updateDoc(ref, { done: newDone });
+    });
+
+    playerListEl.appendChild(li);
+  }
+
+  // Array mischen (Fisher-Yates)
+  function shuffleArray(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+  }
+
+  // Reihenfolge würfeln + speichern
+  shuffleBtn.addEventListener("click", async () => {
+    if (!isTrainer) return;
+
+    const lis = Array.from(playerListEl.querySelectorAll(".player-item"));
+    const players = lis.map(li => ({
+      id: li.dataset.id,
+      name: li.querySelector(".name").textContent,
+      done: li.classList.contains("done")
+    }));
+
+    shuffleArray(players);
+
+    let order = 1;
+    for (const p of players) {
+      const ref = doc(db, PLAYERS_COLLECTION, p.id);
+      await updateDoc(ref, { order });
+      order++;
+    }
+
+    await loadPlayers();
+  });
+
+  // Alle Häkchen zurücksetzen
+  resetBtn.addEventListener("click", async () => {
+    if (!isTrainer) return;
+
+    const lis = Array.from(playerListEl.querySelectorAll(".player-item"));
+
+    for (const li of lis) {
+      const id = li.dataset.id;
+      const ref = doc(db, PLAYERS_COLLECTION, id);
+      await updateDoc(ref, { done: false });
+    }
+
+    await loadPlayers();
+  });
+
+  // Spieler hinzufügen
+  addPlayerBtn.addEventListener("click", async () => {
+    if (!isTrainer) return;
+
+    const name = addPlayerInput.value.trim();
+    if (!name) return;
+
+    const lis = Array.from(playerListEl.querySelectorAll(".player-item"));
+    let maxOrder = 0;
+    lis.forEach(li => {
+      const ord = Number(li.dataset.order || 0);
+      if (ord > maxOrder) maxOrder = ord;
+    });
+
+    const newOrder = maxOrder + 1;
+
+    await addDoc(collection(db, PLAYERS_COLLECTION), {
+      name,
+      done: false,
+      order: newOrder
+    });
+
+    addPlayerInput.value = "";
+    await loadPlayers();
+  });
+
+  // Start
+  loadPlayers().catch(err => {
+    console.error(err);
+    statusText.textContent = "Fehler beim Laden der Daten. Bitte Konfiguration prüfen.";
+  });
+</script>
+
+</body>
+</html>
